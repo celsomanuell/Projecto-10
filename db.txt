@@ -1,0 +1,108 @@
+-- Cria a base de dados
+IF DB_ID(N'GinasticaDB') IS NULL
+BEGIN
+    CREATE DATABASE GinasticaDB;
+END;
+GO
+
+USE GinasticaDB;
+GO
+
+-- Tabela Planos
+IF OBJECT_ID(N'dbo.Planos') IS NOT NULL DROP TABLE dbo.Planos;
+CREATE TABLE dbo.Planos
+(
+    Nome NVARCHAR(50) NOT NULL PRIMARY KEY,
+    TipoPlano NVARCHAR(50) NOT NULL CHECK (TipoPlano IN ('Musculacao','Cardio','Misto','Premium')),
+    Preco DECIMAL(10,2) NOT NULL CONSTRAINT DF_Planos_Preco DEFAULT(0.00),
+    Descricao NVARCHAR(500) NULL
+);
+GO
+
+-- Tabela Socios
+IF OBJECT_ID(N'dbo.Socios') IS NOT NULL DROP TABLE dbo.Socios;
+CREATE TABLE dbo.Socios
+(
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    Nome NVARCHAR(200) NOT NULL,
+    DataNascimento DATE NOT NULL,
+    Telefone NVARCHAR(50) NULL,
+    Email NVARCHAR(200) NULL,
+    Plano NVARCHAR(50) NOT NULL,
+    EstadoPagamento NVARCHAR(20) NOT NULL CHECK (EstadoPagamento IN ('EmDia','Atraso','Suspenso')),
+    DataCriacao DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT FK_Socios_Planos FOREIGN KEY (Plano) REFERENCES dbo.Planos(Nome)
+);
+GO
+
+-- Tabela Instrutores
+IF OBJECT_ID(N'dbo.Instrutores') IS NOT NULL DROP TABLE dbo.Instrutores;
+CREATE TABLE dbo.Instrutores
+(
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    Nome NVARCHAR(200) NOT NULL,
+    Telefone NVARCHAR(50) NULL,
+    Email NVARCHAR(200) NULL,
+    Especialidade NVARCHAR(200) NULL
+);
+GO
+
+-- Tabela AulasColectivas
+IF OBJECT_ID(N'dbo.AulasColectivas') IS NOT NULL DROP TABLE dbo.AulasColectivas;
+CREATE TABLE dbo.AulasColectivas
+(
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    Nome NVARCHAR(200) NOT NULL,
+    InstrutorId INT NULL,
+    DataHora DATETIME2 NOT NULL,
+    Vagas INT NOT NULL CHECK (Vagas >= 0),
+    Sala NVARCHAR(50) NULL,
+    CONSTRAINT FK_Aulas_Instrutor FOREIGN KEY (InstrutorId) REFERENCES dbo.Instrutores(Id)
+);
+GO
+
+-- Tabela Inscricoes (N..N Socio <-> Aula)
+IF OBJECT_ID(N'dbo.Inscricoes') IS NOT NULL DROP TABLE dbo.Inscricoes;
+CREATE TABLE dbo.Inscricoes
+(
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    SocioId INT NOT NULL,
+    AulaId INT NOT NULL,
+    DataInscricao DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT UQ_Inscricao_Socio_Aula UNIQUE (SocioId, AulaId),
+    CONSTRAINT FK_Inscricoes_Socios FOREIGN KEY (SocioId) REFERENCES dbo.Socios(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_Inscricoes_Aulas FOREIGN KEY (AulaId) REFERENCES dbo.AulasColectivas(Id) ON DELETE CASCADE
+);
+GO
+
+-- Tabela Pagamentos
+IF OBJECT_ID(N'dbo.Pagamentos') IS NOT NULL DROP TABLE dbo.Pagamentos;
+CREATE TABLE dbo.Pagamentos
+(
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    SocioId INT NOT NULL,
+    DataPagamento DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    Valor DECIMAL(10,2) NOT NULL,
+    Metodo NVARCHAR(50) NULL,
+    Observacoes NVARCHAR(500) NULL,
+    CONSTRAINT FK_Pagamentos_Socios FOREIGN KEY (SocioId) REFERENCES dbo.Socios(Id) ON DELETE CASCADE
+);
+GO
+
+-- Índices úteis
+CREATE INDEX IX_Inscricoes_AulaId ON dbo.Inscricoes(AulaId);
+CREATE INDEX IX_Pagamentos_SocioId ON dbo.Pagamentos(SocioId);
+GO
+
+-- Seed inicial de Planos (opcional)
+INSERT INTO dbo.Planos (Nome, TipoPlano, Preco, Descricao) VALUES
+('Misto', 'Misto', 30.00, 'Plano misto básico'),
+('Musculacao', 'Musculacao', 25.00, 'Acesso à sala de musculação'),
+('Cardio', 'Cardio', 20.00, 'Aulas de cardio e equipamento'),
+('Premium', 'Premium', 50.00, 'Acesso total e aulas premium');
+GO
+
+-- Exemplo: criar um sócio de teste
+INSERT INTO dbo.Socios (Nome, DataNascimento, Telefone, Email, Plano, EstadoPagamento)
+VALUES ('Teste Usuario', '1990-01-01', '912345678', 'teste@exemplo.com', 'Misto', 'EmDia');
+GO
